@@ -16,8 +16,8 @@ interface Password {
 }
 
 interface TokenCount { 
-    type: string, 
-    required: boolean,
+    type: string;
+    required: boolean;
 };
 
 interface AccountSchema {

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import { Filter } from 'profanity-check';
-import Account, { validate as accountValidate } from "../models/account";
+import Account, { validate } from "../models/account";
 import { hash } from "../helpers";
 import { Status } from "./__global_enums";
 
@@ -19,7 +19,7 @@ export default class AccountService {
         const accountCreationForm = req.body;
 
         const { error: accountValidationError } 
-            = accountValidate(accountCreationForm);
+            = validate(accountCreationForm);
     
         if (accountValidationError) {
             res.status(Status.BAD_REQUEST);
