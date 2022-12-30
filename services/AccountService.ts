@@ -14,6 +14,7 @@ enum AccountError {
 }
 
 export default class AccountService {
+
     public async create(req: Request, res: Response) {
         const accountCreationForm = req.body;
 
@@ -38,6 +39,7 @@ export default class AccountService {
         if (profaneNickname) {
             res.status(Status.BAD_REQUEST);
             res.send(AccountError.PROFANE_NICKNAME);
+            return;
         }
 
         const nameExists = await Account.findOne({ nickname });
@@ -78,7 +80,7 @@ export default class AccountService {
         const email = req.body.email;
         const password = req.body.password;
 
-        const account = await Account.findOne({ email });
+        const account = (await Account.findOne({ email })) as any;
 
         if (!account) {
             res.status(Status.BAD_REQUEST);
@@ -86,8 +88,7 @@ export default class AccountService {
             return;
         }
 
-        const hash = account.password as unknown as string;
-        const isMatch = await bcrypt.compare(password, hash);
+        const isMatch = await bcrypt.compare(password,  account.password);
 
         const status = isMatch ? Status.GOOD_REQUEST : Status.BAD_REQUEST;
         const message = isMatch ? "login successful" :

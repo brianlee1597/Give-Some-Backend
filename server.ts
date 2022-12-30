@@ -2,6 +2,7 @@ import * as dotenv from 'dotenv';
 import express from "express";
 import mongoose from "mongoose";
 import account from "./controllers/account";
+import game from "./controllers/game";
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ const app = express();
 
 app.use(express.json());
 app.use('/', account);
+app.use('/', game);
 
 app.listen(port, () => {
     console.log(`server running @ port: ${port}`);
