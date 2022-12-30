@@ -30,12 +30,10 @@ export default class AccountService {
             return;
         }
 
-        password = await hash(password);
-
         const account = new Account({
             name,
             email,
-            password,
+            password: await hash(password),
             token_count: 4
         })
 
