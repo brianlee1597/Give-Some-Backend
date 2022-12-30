@@ -13,7 +13,6 @@ interface AccountKeyConfig {
 interface Password {
     type: string;
     required: boolean;
-    unique: boolean;
 }
 
 interface TokenCount { 
@@ -44,8 +43,7 @@ const accountSchema: AccountSchema = {
     },
     password: { 
         type: "string", 
-        required: true, 
-        unique: true 
+        required: true
     },
     token_count: { 
         type: "number", 
