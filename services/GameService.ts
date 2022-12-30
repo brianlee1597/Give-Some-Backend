@@ -44,7 +44,7 @@ export default class GameService {
         const player = await Account.findOne({ nickname });
 
         if (!player) {
-            res.status(400);
+            res.status(Status.BAD_REQUEST);
             res.send(GameError.PLAYER_DOESNT_EXIST);
             return;
         }
@@ -73,7 +73,7 @@ export default class GameService {
             })
         }
 
-        res.status(200);
+        res.status(Status.GOOD_REQUEST);
         res.json({
             status,
             id: game._id
@@ -88,7 +88,7 @@ export default class GameService {
         let game: any = await Game.findOne({ _id: gameId });
 
         if (!game) {
-            res.status(400);
+            res.status(Status.BAD_REQUEST);
             res.send(GameError.GAME_NOT_FOUND);
             return;
         }
@@ -111,7 +111,7 @@ export default class GameService {
 
                 break;
             default:
-                res.status(400);
+                res.status(Status.BAD_REQUEST);
                 res.send(GameError.WRONG_ID);
                 return;
         }
@@ -119,10 +119,10 @@ export default class GameService {
         if (game.playerTokens !== null && game.opponentTokens !== null) {
             // do the calculation logic
 
-            res.status(200);
+            res.status(Status.GOOD_REQUEST);
             res.send(GameStatus.GAME_COMPLETE);
         } else {
-            res.status(200);
+            res.status(Status.GOOD_REQUEST);
             res.send(GameStatus.TOKENS_SENT);
         }
     }
