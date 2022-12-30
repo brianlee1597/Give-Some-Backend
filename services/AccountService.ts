@@ -1,11 +1,17 @@
-import AccountBasic, { validate as accountBasicValidate } from "../models/account_basic";
+import Account, { validate as accountValidate } from "../models/account";
 import { encrypt } from "../helpers";
 
 export default class AccountService {
+    private DEFAULT_TOKEN_COUNT: number;
+
+    constructor () {
+        this.DEFAULT_TOKEN_COUNT = 4;
+    }
+
     public async create(req: any, res: any) {
         const accountCreationForm = req.body;
         const { error: accountValidationError } 
-            = accountBasicValidate(accountCreationForm);
+            = accountValidate(accountCreationForm);
     
         if (accountValidationError) {
             res.status(400);
@@ -19,7 +25,7 @@ export default class AccountService {
             password
         } = accountCreationForm;
 
-        const accountExists = await AccountBasic.findOne({ email });
+        const accountExists = await Account.findOne({ email });
 
         if (accountExists) {
             res.status(400);
@@ -27,10 +33,11 @@ export default class AccountService {
             return;
         }
 
-        const account = new AccountBasic({
+        const account = new Account({
             name,
             email,
             password: encrypt(password),
+            token_count: this.DEFAULT_TOKEN_COUNT,
         })
 
         account.save((mongooseSaveError) => {

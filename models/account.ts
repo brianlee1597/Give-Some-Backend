@@ -19,8 +19,7 @@ interface AccountSchema {
     name: AccountKeyConfig;
     email: AccountKeyConfig;
     password: Encrypted;
-    privateKey: Encrypted;
-    address: AccountKeyConfig;
+    token_count: { type: string, required: boolean };
 }
 
 const accountKey = (
@@ -36,15 +35,11 @@ const accountKey = (
 const accountSchema: AccountSchema = {
     name: accountKey("string", true, 1, 50),
     email: accountKey("string", true, 5, 255, true),
-    address: accountKey("string", true, 42, 42),
+    token_count: { type: "number", required: true },
     password: {
         data: { type: "string" },
         iv: { type: "string" },
     },
-    privateKey: {
-        data: { type: "string" },
-        iv: { type: "string" },
-    }
 }
 
 const Account = mongoose.model("Account", new mongoose.Schema(accountSchema));
