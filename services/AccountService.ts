@@ -1,12 +1,11 @@
-import { createEthAccount } from "../overledger";
-import Account, { validate as accountValidate } from "../models/account";
+import AccountBasic, { validate as accountBasicValidate } from "../models/account_basic";
 import { encrypt } from "../helpers";
 
 export default class AccountService {
-    public async create (req: any, res: any) {
+    public async create(req: any, res: any) {
         const accountCreationForm = req.body;
         const { error: accountValidationError } 
-            = accountValidate(accountCreationForm);
+            = accountBasicValidate(accountCreationForm);
     
         if (accountValidationError) {
             res.status(400);
@@ -20,31 +19,18 @@ export default class AccountService {
             password
         } = accountCreationForm;
 
-        const accountExists = await Account.findOne({ email });
+        const accountExists = await AccountBasic.findOne({ email });
 
         if (accountExists) {
             res.status(400);
             res.send("email already exists");
             return;
         }
-    
-        const { data: newEthereumAccount, error: createEthAccountError } 
-            = await createEthAccount();
-    
-        if (createEthAccountError) {
-            res.status(400);
-            res.send(createEthAccountError);
-            return;
-        }
-    
-        const { privateKey, address } = newEthereumAccount;
 
-        const account = new Account({
+        const account = new AccountBasic({
             name,
             email,
-            address,
             password: encrypt(password),
-            privateKey: encrypt(privateKey),
         })
 
         account.save((mongooseSaveError) => {
