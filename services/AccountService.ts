@@ -1,7 +1,17 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
+import { Filter } from 'profanity-check';
 import Account, { validate as accountValidate } from "../models/account";
 import { hash } from "../helpers";
+import { Status } from "./__global_enums";
+
+enum AccountError {
+    PROFANE_NICKNAME = "please choose a less profane nickname",
+    NICKNAME_EXISTS = "nickname already exists, please choose another nickname",
+    EMAIL_EXISTS = "email already exists",
+    NO_ACCOUNT_FOUND = "no account found with that email",
+    NO_MATCHING_PASSWORD = "no matching password for that email",
+}
 
 export default class AccountService {
     public async create(req: Request, res: Response) {
@@ -11,27 +21,42 @@ export default class AccountService {
             = accountValidate(accountCreationForm);
     
         if (accountValidationError) {
-            res.status(400);
+            res.status(Status.BAD_REQUEST);
             res.send(accountValidationError.details[0].message);
             return;
         }
 
         let {
-            name,
+            nickname,
             email,
             password
         } = accountCreationForm;
 
-        const account = await Account.findOne({ email });
+        const filter = new Filter();
+        const profaneNickname = filter.isProfane(nickname);
 
-        if (account) {
-            res.status(400);
-            res.send("email already exists");
+        if (profaneNickname) {
+            res.status(Status.BAD_REQUEST);
+            res.send(AccountError.PROFANE_NICKNAME);
+        }
+
+        const nameExists = await Account.findOne({ nickname });
+        const accountExists = await Account.findOne({ email });
+
+        if (nameExists) {
+            res.status(Status.BAD_REQUEST);
+            res.send(AccountError.NICKNAME_EXISTS);
+            return;
+        }
+
+        if (accountExists) {
+            res.status(Status.BAD_REQUEST);
+            res.send(AccountError.EMAIL_EXISTS);
             return;
         }
 
         const newAccount = new Account({
-            name,
+            nickname,
             email,
             password: await hash(password),
             token_count: 4
@@ -39,12 +64,12 @@ export default class AccountService {
 
         newAccount.save((mongooseSaveError) => {
             if (mongooseSaveError) {
-                res.status(400);
+                res.status(Status.BAD_REQUEST);
                 res.send(mongooseSaveError);
                 return;
             }
             
-            res.status(200);
+            res.status(Status.GOOD_REQUEST);
             res.send("account creation successful");
         })
     }
@@ -56,17 +81,17 @@ export default class AccountService {
         const account = await Account.findOne({ email });
 
         if (!account) {
-            res.status(400);
-            res.send("no account found with that email, cannot login");
+            res.status(Status.BAD_REQUEST);
+            res.send(AccountError.NO_ACCOUNT_FOUND);
             return;
         }
 
         const hash = account.password as unknown as string;
         const isMatch = await bcrypt.compare(password, hash);
 
-        const status = isMatch ? 200 : 400;
+        const status = isMatch ? Status.GOOD_REQUEST : Status.BAD_REQUEST;
         const message = isMatch ? "login successful" :
-            "login failed, no matching password for that email";
+            AccountError.NO_MATCHING_PASSWORD;
 
         res.status(status);
         res.send(message);
@@ -77,18 +102,18 @@ export default class AccountService {
         const account = await Account.findOne({ email });
 
         if (!account) {
-            res.status(400);
-            res.send("no account found with that email, cannot delete");
+            res.status(Status.BAD_REQUEST);
+            res.send(AccountError.NO_ACCOUNT_FOUND);
             return;
         }
 
         account.delete((deleteError) => {
             if (deleteError) {
-                res.status(400);
+                res.status(Status.BAD_REQUEST);
                 res.send(deleteError);
             }
 
-            res.status(200)
+            res.status(Status.GOOD_REQUEST)
             res.send("account deletion complete");
         })
     }

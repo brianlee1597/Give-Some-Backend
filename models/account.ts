@@ -21,18 +21,19 @@ interface TokenCount {
 };
 
 interface AccountSchema {
-    name: AccountKeyConfig;
+    nickname: AccountKeyConfig;
     email: AccountKeyConfig;
     password: Password;
     token_count: TokenCount;
 }
 
 const accountSchema: AccountSchema = {
-    name: {
+    nickname: {
         type: "string",
         required: true,
         minlength: 1,
-        maxlength: 50
+        maxlength: 50,
+        unique: true,
     },
     email: {
         type: "string",
@@ -57,14 +58,14 @@ export default Account;
 
 /* ========== Account Creation JSON Validation ========== */
 interface AccountBody {
-    name: string;
+    nickname: string;
     email: string;
     password: string;
 }
 
 const validate = (body: AccountBody) => {
     const account = Joi.object({
-        name: Joi
+        nickname: Joi
             .string()
             .min(1)
             .max(50)
