@@ -6,4 +6,6 @@ const game = new GameService();
 
 router.get("/leaderboard", game.leaderboard);
 
+router.post("/join", game.join);
+
 export default router;

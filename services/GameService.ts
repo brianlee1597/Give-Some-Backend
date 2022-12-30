@@ -4,7 +4,7 @@ import { Status } from "./__global_enums";
 
 export default class GameService {
 
-    public async leaderboard (req: Request, res: Response) {
+    public async leaderboard (_: Request, res: Response) {
         const leaderboard = await Account
             .find()
             .sort({ token_count: -1 })
@@ -22,5 +22,9 @@ export default class GameService {
 
         res.status(Status.GOOD_REQUEST);
         res.send(necessaryInfo);
+    }
+
+    public async join (req: Request, res: Response) {
+        
     }
 }
