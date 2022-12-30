@@ -112,6 +112,7 @@ export default class AccountService {
             if (deleteError) {
                 res.status(Status.BAD_REQUEST);
                 res.send(deleteError);
+                return;
             }
 
             res.status(Status.GOOD_REQUEST)
