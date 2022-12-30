@@ -1,9 +1,12 @@
+import { Request, Response } from "express";
+import bcrypt from "bcrypt";
 import Account, { validate as accountValidate } from "../models/account";
-import { encrypt } from "../helpers";
+import { hash } from "../helpers";
 
 export default class AccountService {
-    public async create(req: any, res: any) {
+    public async create(req: Request, res: Response) {
         const accountCreationForm = req.body;
+
         const { error: accountValidationError } 
             = accountValidate(accountCreationForm);
     
@@ -13,7 +16,7 @@ export default class AccountService {
             return;
         }
 
-        const {
+        let {
             name,
             email,
             password
@@ -27,10 +30,12 @@ export default class AccountService {
             return;
         }
 
+        password = await hash(password);
+
         const account = new Account({
             name,
             email,
-            password: encrypt(password),
+            password,
             token_count: 4
         })
 
@@ -46,7 +51,30 @@ export default class AccountService {
         })
     }
 
-    public async delete (req: any, res: any) {
+    public async login (req: Request, res: Response) {
+        const email = req.body.email;
+        const password = req.body.password;
+
+        const account = await Account.findOne({ email });
+
+        if (!account) {
+            res.status(400);
+            res.send("no account found with that email, cannot login");
+            return;
+        }
+
+        const hash = account.password as unknown as string;
+        const isMatch = await bcrypt.compare(password, hash);
+
+        const status = isMatch ? 200 : 400;
+        const message = isMatch ? "login successful" :
+            "login failed, no matching password for that email";
+
+        res.status(status);
+        res.send(message);
+    }
+
+    public async delete (req: Request, res: Response) {
         const email = req.body.email;
         const account = await Account.findOne({ email });
 

@@ -10,36 +10,47 @@ interface AccountKeyConfig {
     unique?: boolean;
 }
 
-interface Encrypted {
-    data: { type: string },
-    iv: { type: string },
+interface Password {
+    type: string;
+    required: boolean;
+    unique: boolean;
 }
+
+interface TokenCount { 
+    type: string, 
+    required: boolean,
+};
 
 interface AccountSchema {
     name: AccountKeyConfig;
     email: AccountKeyConfig;
-    password: Encrypted;
-    token_count: { type: string, required: boolean };
-}
-
-const accountKey = (
-    type: string, 
-    required: boolean, 
-    minlength: number, 
-    maxlength: number,
-    unique?: boolean,
-): AccountKeyConfig => {
-    return { type, required, minlength, maxlength, unique };
+    password: Password;
+    token_count: TokenCount;
 }
 
 const accountSchema: AccountSchema = {
-    name: accountKey("string", true, 1, 50),
-    email: accountKey("string", true, 5, 255, true),
-    token_count: { type: "number", required: true },
-    password: {
-        data: { type: "string" },
-        iv: { type: "string" },
+    name: {
+        type: "string",
+        required: true,
+        minlength: 1,
+        maxlength: 50
     },
+    email: {
+        type: "string",
+        required: true,
+        minlength: 5,
+        maxlength: 255,
+        unique: true,
+    },
+    password: { 
+        type: "string", 
+        required: true, 
+        unique: true 
+    },
+    token_count: { 
+        type: "number", 
+        required: true
+    }
 }
 
 const Account = mongoose.model("Account", new mongoose.Schema(accountSchema));
