@@ -22,22 +22,22 @@ export default class AccountService {
             password
         } = accountCreationForm;
 
-        const accountExists = await Account.findOne({ email });
+        const account = await Account.findOne({ email });
 
-        if (accountExists) {
+        if (account) {
             res.status(400);
             res.send("email already exists");
             return;
         }
 
-        const account = new Account({
+        const newAccount = new Account({
             name,
             email,
             password: await hash(password),
             token_count: 4
         })
 
-        account.save((mongooseSaveError) => {
+        newAccount.save((mongooseSaveError) => {
             if (mongooseSaveError) {
                 res.status(400);
                 res.send(mongooseSaveError);
