@@ -74,6 +74,10 @@ async function createAccount(req: Request, res: Response): Promise<void> {
     res.json(
       wrapResult(ResType.ACCOUNT_CREATED, {
         message: "account creation successful",
+        info: {
+          nickname,
+          email,
+        },
         token,
       })
     );
@@ -120,6 +124,10 @@ async function login(req: any, res: Response): Promise<void> {
   res.json(
     wrapResult(ResType.LOGIN_SUCCESSFUL, {
       message: "login successful",
+      info: {
+        nickname: account.nickname,
+        email,
+      },
       token,
     })
   );
