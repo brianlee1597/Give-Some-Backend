@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import { Filter } from 'profanity-check';
 import Account, { AccountBody, validate } from "../models/account";
-import { hash } from "../helpers";
+import { hash, ResType, wrapResult } from "../helpers";
 import { Status } from "./__global_enums";
 import { ValidationError } from "joi";
 
@@ -24,7 +24,7 @@ export default class AccountService {
     
         if (accountValidationError) {
             res.status(Status.BAD_REQUEST);
-            res.send(accountValidationError.details[0].message);
+            res.send(wrapResult(ResType.ACCOUNT_ERROR, accountValidationError.details[0].message));
             return;
         }
 
@@ -39,7 +39,7 @@ export default class AccountService {
 
         if (profaneNickname) {
             res.status(Status.BAD_REQUEST);
-            res.send(AccountError.PROFANE_NICKNAME);
+            res.send(wrapResult(ResType.ACCOUNT_ERROR, AccountError.PROFANE_NICKNAME));
             return;
         }
 
@@ -48,13 +48,13 @@ export default class AccountService {
 
         if (nameExists) {
             res.status(Status.BAD_REQUEST);
-            res.send(AccountError.NICKNAME_EXISTS);
+            res.send(wrapResult(ResType.ACCOUNT_ERROR, AccountError.NICKNAME_EXISTS));
             return;
         }
 
         if (accountExists) {
             res.status(Status.BAD_REQUEST);
-            res.send(AccountError.EMAIL_EXISTS);
+            res.send(wrapResult(ResType.ACCOUNT_ERROR, AccountError.EMAIL_EXISTS));
             return;
         }
 
@@ -73,7 +73,7 @@ export default class AccountService {
             }
             
             res.status(Status.GOOD_REQUEST);
-            res.send("account creation successful");
+            res.send(wrapResult(ResType.ACCOUNT_CREATED, "account creation successful"));
         })
     }
 
@@ -85,7 +85,7 @@ export default class AccountService {
 
         if (!account) {
             res.status(Status.BAD_REQUEST);
-            res.send(AccountError.NO_ACCOUNT_FOUND);
+            res.send(wrapResult(ResType.ACCOUNT_ERROR, AccountError.NO_ACCOUNT_FOUND));
             return;
         }
 
@@ -95,8 +95,10 @@ export default class AccountService {
         const message: Partial<Status> | string = isMatch ? "login successful" :
             AccountError.NO_MATCHING_PASSWORD;
 
+        const resType = isMatch ? ResType.LOGIN_SUCCESSFUL : ResType.ACCOUNT_ERROR;
+
         res.status(status);
-        res.send(message);
+        res.send(wrapResult(resType, message));
     }
 
     public async delete (req: Request, res: Response): Promise<void> {
@@ -105,19 +107,19 @@ export default class AccountService {
 
         if (!account) {
             res.status(Status.BAD_REQUEST);
-            res.send(AccountError.NO_ACCOUNT_FOUND);
+            res.send(wrapResult(ResType.ACCOUNT_ERROR ,AccountError.NO_ACCOUNT_FOUND));
             return;
         }
 
         account.delete((deleteError: any) => {
             if (deleteError) {
                 res.status(Status.BAD_REQUEST);
-                res.send(deleteError);
+                res.send(wrapResult(ResType.ACCOUNT_ERROR, deleteError));
                 return;
             }
 
             res.status(Status.GOOD_REQUEST)
-            res.send("account deletion complete");
+            res.send(wrapResult(ResType.DELETION_SUCCESSFUL, "account deletion complete"));
         })
     }
 }

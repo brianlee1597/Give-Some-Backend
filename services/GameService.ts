@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { ResType, wrapResult } from "../helpers";
 import Account from "../models/account";
 import Game from "../models/game";
 import { AccountError } from "./AccountService";
@@ -6,9 +7,15 @@ import { Status } from "./__global_enums";
 
 interface InitialGameStats {
     id: string;
-    opponentID: string;
-    playerID: string;
+    opponent_id: string;
+    player_id: string;
     tokens_available: number;
+}
+
+interface NewTokenCount {
+    newPlayerTokenCount: number;
+    newOpponentTokenCount: number;
+    gameResults: any;
 }
 
 enum GameStatus {
@@ -46,7 +53,7 @@ export default class GameService {
         })
 
         res.status(Status.GOOD_REQUEST);
-        res.send(necessaryInfo);
+        res.send(wrapResult(ResType.LEADERBOARD, necessaryInfo));
     }
 
     public async join (req: Request, res: Response): Promise<void> { // do tokens available here instead
@@ -56,7 +63,7 @@ export default class GameService {
 
         if (!player) {
             res.status(Status.BAD_REQUEST);
-            res.send(GameError.PLAYER_DOESNT_EXIST);
+            res.send(wrapResult(ResType.GAME_ERROR, GameError.PLAYER_DOESNT_EXIST));
             return;
         }
 
@@ -91,14 +98,14 @@ export default class GameService {
                 }
             })
         } else {
-            const DELTA = 1e4 // 1 second delta just in case;
+            const progress: any = await Game.findById(game._id);
+            // game finished
+            if (!progress) return;
 
+            // game left hanging because no one chose anything
+            const DELTA = 1e4;
+            // delete game after 30 seconds + 1 second delta
             setTimeout(async () => {
-                const progress: any = await Game.findById(game._id);
-
-                // game already finished
-                if (!progress) return;
-
                 if (
                     !progress.playerTokens.given || 
                     !progress.opponentTokens.given
@@ -125,19 +132,19 @@ export default class GameService {
 
         if (!game) {
             res.status(Status.BAD_REQUEST);
-            res.send(GameError.GAME_NOT_FOUND);
+            res.send(wrapResult(ResType.GAME_ERROR, GameError.GAME_NOT_FOUND));
             return;
         }
 
         if (!account) {
             res.status(Status.BAD_REQUEST);
-            res.send(AccountError.NO_ACCOUNT_FOUND);
+            res.send(wrapResult(ResType.ACCOUNT_ERROR, AccountError.NO_ACCOUNT_FOUND));
             return;
         }
 
         if (!game.playerID || !game.opponentID) {
             res.status(Status.BAD_REQUEST);
-            res.send(GameError.NOT_STARTED_YET);
+            res.send(wrapResult(ResType.GAME_ERROR, GameError.NOT_STARTED_YET));
             return;
         }
 
@@ -156,19 +163,19 @@ export default class GameService {
                 break;
             default:
                 res.status(Status.BAD_REQUEST);
-                res.send(GameError.PLAYER_DOESNT_EXIST);
+                res.send(wrapResult(ResType.GAME_ERROR, GameError.PLAYER_DOESNT_EXIST));
                 return;
         }
 
         const initialGameStats: InitialGameStats = {
             id: game._id,
-            opponentID,
-            playerID,
+            opponent_id: opponentID,
+            player_id: playerID,
             tokens_available: tokensAvailable,
         }
 
         res.status(Status.GOOD_REQUEST);
-        res.send(initialGameStats);
+        res.send(wrapResult(ResType.INITIAL_GAME_STATS, initialGameStats));
     }
 
     public async sendTokens (req: Request, res: Response): Promise<void> {
@@ -178,7 +185,7 @@ export default class GameService {
 
         if (tokensSent < 0) {
             res.status(Status.BAD_REQUEST);
-            res.send(GameError.BAD_AMOUNT);
+            res.send(wrapResult(ResType.GAME_ERROR, GameError.BAD_AMOUNT));
             return;
         }
 
@@ -186,62 +193,60 @@ export default class GameService {
 
         if (!game || !game.playerID || !game.opponentID) {
             res.status(Status.BAD_REQUEST);
-            res.send(GameError.GAME_NOT_FOUND);
+            res.send(wrapResult(ResType.GAME_ERROR, GameError.GAME_NOT_FOUND));
             return;
         }
 
         if (game.playerTokens.given && game.opponentTokens.given) {
             res.status(Status.BAD_REQUEST);
-            res.send(GameError.ALREADY_COMPLETE);
+            res.send(wrapResult(ResType.GAME_ERROR, GameError.ALREADY_COMPLETE));
             return;
         }
+
+        let tokenObject: any;
 
         switch (nickname) {
             case game.playerID:
                 if (game.playerTokens.available < tokensSent) {
                     res.status(Status.BAD_REQUEST);
-                    res.send(GameError.BAD_AMOUNT);
+                    res.send(wrapResult(ResType.GAME_ERROR, GameError.BAD_AMOUNT));
                     return;
                 }
 
-                await Game.findByIdAndUpdate(gameId, {
-                    $set: {
-                        playerTokens: {
-                            available: game.playerTokens.available,
-                            given: tokensSent
-                        }
+                tokenObject = {
+                    playerTokens: {
+                        available: game.playerTokens.available,
+                        given: tokensSent
                     }
-                })
+                }
 
                 break;
             case game.opponentID:
                 if (game.opponentTokens.available < tokensSent) {
                     res.status(Status.BAD_REQUEST);
-                    res.send(GameError.BAD_AMOUNT);
+                    res.send(wrapResult(ResType.GAME_ERROR, GameError.BAD_AMOUNT));
                     return;
                 }
 
-                await Game.findByIdAndUpdate(gameId, {
-                    $set: {
-                        opponentTokens: {
-                            available: game.opponentTokens.available,
-                            given: tokensSent
-                        }
+                tokenObject = {
+                    opponentTokens: {
+                        available: game.opponentTokens.available,
+                        given: tokensSent
                     }
-                })
+                }
 
                 break;
             default:
                 res.status(Status.BAD_REQUEST);
-                res.send(GameError.WRONG_ID);
+                res.send(wrapResult(ResType.GAME_ERROR, GameError.WRONG_ID));
                 return;
         }
 
-        game = await Game.findById(gameId);
+        game = await Game.findByIdAndUpdate(gameId, {
+            $set: tokenObject
+        }, { new: true });
 
-        const playerAvailable = game.playerTokens.available;
         const playerGiven = game.playerTokens.given;
-        const opponentAvailable = game.opponentTokens.available;
         const opponentGiven = game.opponentTokens.given;
 
         if (playerGiven != null && opponentGiven != null) {
@@ -252,39 +257,21 @@ export default class GameService {
             }, 5000);
 
             res.status(Status.GOOD_REQUEST);
-            res.send(GameStatus.GAME_COMPLETE);
-
-            const player: any = await Account.findOne({ nickname: game.playerID });
-            const opponent: any = await Account.findOne({ nickname: game.opponentID });
-
-            if (!player || !opponent) {
-                console.log("something is seriously wrong with mongodb");
-                return;
-            }
+            res.send(wrapResult(ResType.GAME_STATUS, GameStatus.GAME_COMPLETE));
 
             /* ========== Updating Players' token state =========== */
-            const playerTokenCount = player.token_count - playerAvailable;
-            const opponentTokenCount = opponent.token_count - opponentAvailable;
-            
-            let playerChange = (playerAvailable - playerGiven) + (opponentGiven * 2);
-            let opponentChange = (opponentAvailable - opponentGiven) + (playerGiven * 2);
-
-            // if both users didn't give anything, penalty is given
-            if (playerGiven === 0 && opponentGiven === 0) {
-                const penalty = Math.min(playerAvailable, opponentAvailable, 4);
-                playerChange = playerAvailable - penalty;
-                opponentChange = opponentAvailable - penalty;
-            }
+            const { newPlayerTokenCount, newOpponentTokenCount }: NewTokenCount
+            = await this.calculateTokenCount(game);
 
             await Account.findOneAndUpdate({ nickname: game.playerID }, {
                 $set: {
-                    token_count: playerTokenCount + playerChange
+                    token_count: newPlayerTokenCount
                 }
             })
 
             await Account.findOneAndUpdate({ nickname: game.opponentID }, {
                 $set: {
-                    token_count: opponentTokenCount + opponentChange
+                    token_count: newOpponentTokenCount
                 }
             })
             /* ========== Updating Players' token state =========== */
@@ -292,7 +279,7 @@ export default class GameService {
         }
 
         res.status(Status.GOOD_REQUEST);
-        res.send(GameStatus.TOKENS_SENT);
+        res.send(wrapResult(ResType.GAME_STATUS, GameStatus.TOKENS_SENT));
     }
 
     public async getGameStats (req: Request, res: Response): Promise<void> {
@@ -307,22 +294,72 @@ export default class GameService {
             // if this is called from inside an arena, this means that one or both were afk. otherwise, line 228 will be hit
             // and it will show different ui. This conditional should show afk ui and game ending ui after 30 seconds on frontend.
             res.status(Status.BAD_REQUEST);
-            res.send(GameError.GAME_NOT_FOUND);
+            res.send(wrapResult(ResType.GAME_ERROR, GameError.GAME_NOT_FOUND));
             return;
         }
 
         // this is when a non-playing user calls from postman or something that has nothing to do with people in game.
         if (game.playerID !== nickname && game.opponentID !== nickname) {
             res.status(Status.BAD_REQUEST);
-            res.send(GameError.WRONG_ID);
+            res.send(wrapResult(ResType.GAME_ERROR, GameError.WRONG_ID));
             return;
         }
 
         // this is when both players have sent tokens, so game should end now.
         if (game.playerTokens.given !== null && game.opponentTokens.given !== null) {
             // game complete, do calculation for user, send stats and update.
+            const { gameResults } = await this.calculateTokenCount(game);
+
+            res.status(Status.GOOD_REQUEST);
+            res.send(wrapResult(ResType.GAME_RESULTS, gameResults));
         }
 
         // send the current game progress
+    }
+
+    private async calculateTokenCount(game: any): Promise<NewTokenCount> {
+        const playerAvailable = game.playerTokens.available;
+        const playerGiven = game.playerTokens.given;
+        const opponentAvailable = game.opponentTokens.available;
+        const opponentGiven = game.opponentTokens.given;
+
+        const player: any = await Account.findOne({ nickname: game.playerID });
+        const opponent: any = await Account.findOne({ nickname: game.opponentID });
+
+        const playerTokenCount = player.token_count - playerAvailable;
+        const opponentTokenCount = opponent.token_count - opponentAvailable;
+        
+        let playerChange = (playerAvailable - playerGiven) + (opponentGiven * 2);
+        let opponentChange = (opponentAvailable - opponentGiven) + (playerGiven * 2);
+
+        // if both users didn't give anything, penalty is given
+        if (playerGiven === 0 && opponentGiven === 0) {
+            const penalty = Math.min(playerAvailable, opponentAvailable);
+            playerChange = playerAvailable - penalty;
+            opponentChange = opponentAvailable - penalty;
+        }
+
+        const gameResults = {
+            player1: {
+                nickname: game.playerID,
+                available: playerAvailable,
+                given: playerGiven,
+                gotten: opponentGiven * 2,
+                total: playerTokenCount + playerChange,
+            },
+            player2: {
+                nickname: game.opponentID,
+                available: opponentAvailable,
+                given: opponentGiven,
+                gotten: playerGiven * 2,
+                total: opponentTokenCount + opponentChange,
+            }
+        }
+
+        return {
+            newPlayerTokenCount: playerTokenCount + playerChange,
+            newOpponentTokenCount: opponentTokenCount + opponentChange,
+            gameResults
+        }
     }
 }
