@@ -18,6 +18,17 @@ interface NewTokenCount {
   gameResults: any;
 }
 
+interface CurrentProgress {
+  ["string"]: {
+    nickname: string;
+    given: boolean;
+  };
+  ["string"]: {
+    nickname: string;
+    given: boolean;
+  };
+}
+
 enum GameStatus {
   TOKENS_SENT = "tokens sent",
   GAME_COMPLETE = "game complete",
@@ -30,6 +41,7 @@ enum GameError {
   ALREADY_COMPLETE = "game already finished, not authorised to send tokens",
   NOT_STARTED_YET = "game hasn't started yet, still looking for someone to join",
   BAD_AMOUNT = "invalid amount of tokens to give",
+  INVALID_REQUEST = "invalid request",
 }
 
 async function leaderboard(_: Request, res: Response): Promise<void> {
@@ -245,13 +257,8 @@ async function sendTokens(req: Request, res: Response): Promise<void> {
 
   if (playerGiven != null && opponentGiven != null) {
     /* ========== Updating Players' token state =========== */
-    const {
-      newPlayerTokenCount,
-      newOpponentTokenCount,
-      gameResults,
-    }: NewTokenCount = await calculateTokenCount(game);
-
-    logPretty(gameResults);
+    const { newPlayerTokenCount, newOpponentTokenCount }: NewTokenCount =
+      await calculateTokenCount(game);
 
     await Account.findOneAndUpdate(
       { nickname: game.playerID },
@@ -272,20 +279,20 @@ async function sendTokens(req: Request, res: Response): Promise<void> {
     );
     /* ========== Updating Players' token state =========== */
     res.status(Status.GOOD_REQUEST);
-    res.json(wrapResult(ResType.GAME_COMPLETE, gameResults));
+    res.json(wrapResult(ResType.GAME_COMPLETE, GameStatus.GAME_COMPLETE));
 
-    //delete the game after 5 seconds
+    //delete the game after 10 seconds
     setTimeout(async () => {
       await Game.findByIdAndDelete(gameId);
       console.log(
         `game completed and deleted. [${game.playerID}, ${game.opponentID}]`
       );
-    }, 5000);
+    }, 30000);
     return;
   }
 
   res.status(Status.GOOD_REQUEST);
-  res.json(wrapResult(ResType.GAME_STATUS, GameStatus.TOKENS_SENT));
+  res.json(wrapResult(ResType.GAME_IN_PROGRESS, GameStatus.TOKENS_SENT));
 }
 
 async function getGameStats(req: Request, res: Response): Promise<void> {
@@ -313,19 +320,40 @@ async function getGameStats(req: Request, res: Response): Promise<void> {
   }
 
   // this is when both players have sent tokens, so game should end now.
-  if (game.playerTokens.given !== null && game.opponentTokens.given !== null) {
-    // game complete, do calculation for user, send stats and update.
-    const { gameResults } = await calculateTokenCount(game);
-
+  if (game.playerTokens.given != null && game.opponentTokens.given != null) {
     res.status(Status.GOOD_REQUEST);
-    res.json(wrapResult(ResType.GAME_COMPLETE, gameResults));
+    res.json(wrapResult(ResType.GAME_COMPLETE, GameStatus.GAME_COMPLETE));
+    return;
   }
 
   // send the current game progress TODO: Get some fking rest
-  const currentProgress = {};
+  const currentProgress = getCurrentProgress(game);
 
   res.status(Status.GOOD_REQUEST);
   res.json(wrapResult(ResType.GAME_IN_PROGRESS, currentProgress));
+}
+
+async function getFinalResults(req: Request, res: Response) {
+  const gameId = req.body.id;
+
+  if (!gameId) {
+    res.status(Status.BAD_REQUEST);
+    res.json(wrapResult(ResType.GAME_ERROR, GameError.INVALID_REQUEST));
+    return;
+  }
+
+  const game = await Game.findById(gameId);
+
+  if (!game) {
+    res.status(Status.BAD_REQUEST);
+    res.json(wrapResult(ResType.GAME_ERROR, GameError.GAME_NOT_FOUND));
+    return;
+  }
+
+  const { gameResults } = await calculateTokenCount(game);
+
+  res.status(Status.GOOD_REQUEST);
+  res.json(wrapResult(ResType.GAME_DETAILS, gameResults));
 }
 
 async function calculateTokenCount(game: any): Promise<NewTokenCount> {
@@ -384,10 +412,31 @@ async function calculateTokenCount(game: any): Promise<NewTokenCount> {
   };
 }
 
+function getCurrentProgress(game: any): CurrentProgress {
+  // destructure into current progress
+
+  const playerID: string = game.playerID;
+  const opponentID: string = game.opponentID;
+
+  const currentProgress: any = {
+    [playerID]: {
+      nickname: game.playerID,
+      given: game.playerTokens.given != null,
+    },
+    [opponentID]: {
+      nickname: game.opponentID,
+      given: game.opponentTokens.given != null,
+    },
+  };
+
+  return currentProgress;
+}
+
 export default {
   leaderboard,
   join,
   sendTokens,
   getArena,
   getGameStats,
+  getFinalResults,
 };
