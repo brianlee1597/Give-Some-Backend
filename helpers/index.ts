@@ -25,9 +25,13 @@ export enum ResType {
   ACCOUNT_ERROR = 11,
 
   GAME_STATUS = 20,
-  GAME_COMPLETE = 21,
+  GAME_IN_PROGRESS = 21,
+  GAME_COMPLETE = 22,
+
+  GAME_AWAITING = 30,
+  GAME_READY = 31,
 }
 
-export function wrapResult(type: Partial<ResType>, data: any) {
-  return { type, data };
+export function wrapResult(status: Partial<ResType>, data: any) {
+  return { status, data };
 }
