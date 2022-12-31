@@ -33,16 +33,6 @@ enum GameStatus {
   GAME_COMPLETE = "game complete",
 }
 
-enum GameError {
-  PLAYER_DOESNT_EXIST = "cannot join game, player doesn't exist.",
-  GAME_NOT_FOUND = "game does not exist.",
-  WRONG_ID = "you are not authorised to play in this game",
-  ALREADY_COMPLETE = "game already finished, not authorised to send tokens",
-  NOT_STARTED_YET = "game hasn't started yet, still looking for someone to join",
-  BAD_AMOUNT = "invalid amount of tokens to give",
-  INVALID_REQUEST = "invalid request",
-}
-
 async function leaderboard(_: Request, res: Response): Promise<void> {
   const leaderboard = await Account.find().sort({ token_count: -1 }).limit(100);
 
@@ -73,12 +63,11 @@ async function join(req: any, res: Response): Promise<void> {
 
   if (!player) {
     res.status(Status.BAD_REQUEST);
-    res.json(wrapResult(ResType.GAME_ERROR, GameError.PLAYER_DOESNT_EXIST));
+    res.json(wrapResult(ResType.GAME_ERROR, ERROR.PLAYER_DOESNT_EXIST));
     return;
   }
 
   if (nickname !== req.decoded.nickname || player.email !== req.decoded.email) {
-    console.log(nickname, req.decoded.nickname, player.email);
     res.status(Status.BAD_AUTH);
     res.json(wrapResult(ResType.ACCOUNT_ERROR, ERROR.JWT_ERROR));
     return;
@@ -150,21 +139,15 @@ async function getArena(req: any, res: Response): Promise<void> {
   let game: any = await Game.findById(gameId);
   let account: any = await Account.findOne({ nickname });
 
-  if (!game) {
+  if (!game || !account || !game.playerID || !game.opponentID) {
     res.status(Status.BAD_REQUEST);
-    res.json(wrapResult(ResType.GAME_ERROR, GameError.GAME_NOT_FOUND));
-    return;
-  }
 
-  if (!account) {
-    res.status(Status.BAD_REQUEST);
-    res.json(wrapResult(ResType.ACCOUNT_ERROR, ERROR.NO_ACCOUNT_FOUND));
-    return;
-  }
+    let message: Partial<ERROR>;
+    if (!game) message = ERROR.GAME_NOT_FOUND;
+    else if (!account) message = ERROR.NO_ACCOUNT_FOUND;
+    else message = ERROR.NOT_STARTED_YET;
 
-  if (!game.playerID || !game.opponentID) {
-    res.status(Status.BAD_REQUEST);
-    res.json(wrapResult(ResType.GAME_ERROR, GameError.NOT_STARTED_YET));
+    res.json(wrapResult(ResType.GAME_ERROR, message));
     return;
   }
 
@@ -192,7 +175,7 @@ async function getArena(req: any, res: Response): Promise<void> {
       break;
     default:
       res.status(Status.BAD_REQUEST);
-      res.json(wrapResult(ResType.GAME_ERROR, GameError.PLAYER_DOESNT_EXIST));
+      res.json(wrapResult(ResType.GAME_ERROR, ERROR.PLAYER_DOESNT_EXIST));
       return;
   }
 
@@ -221,7 +204,7 @@ async function sendTokens(req: any, res: Response): Promise<void> {
 
   if (tokensSent < 0) {
     res.status(Status.BAD_REQUEST);
-    res.json(wrapResult(ResType.GAME_ERROR, GameError.BAD_AMOUNT));
+    res.json(wrapResult(ResType.GAME_ERROR, ERROR.BAD_AMOUNT));
     return;
   }
 
@@ -235,13 +218,13 @@ async function sendTokens(req: any, res: Response): Promise<void> {
 
   if (!game || !game.playerID || !game.opponentID) {
     res.status(Status.BAD_REQUEST);
-    res.json(wrapResult(ResType.GAME_ERROR, GameError.GAME_NOT_FOUND));
+    res.json(wrapResult(ResType.GAME_ERROR, ERROR.GAME_NOT_FOUND));
     return;
   }
 
   if (game.playerTokens.given && game.opponentTokens.given) {
     res.status(Status.BAD_REQUEST);
-    res.json(wrapResult(ResType.GAME_ERROR, GameError.ALREADY_COMPLETE));
+    res.json(wrapResult(ResType.GAME_ERROR, ERROR.ALREADY_COMPLETE));
     return;
   }
 
@@ -251,7 +234,7 @@ async function sendTokens(req: any, res: Response): Promise<void> {
     case game.playerID:
       if (game.playerTokens.available < tokensSent) {
         res.status(Status.BAD_REQUEST);
-        res.json(wrapResult(ResType.GAME_ERROR, GameError.BAD_AMOUNT));
+        res.json(wrapResult(ResType.GAME_ERROR, ERROR.BAD_AMOUNT));
         return;
       }
 
@@ -266,7 +249,7 @@ async function sendTokens(req: any, res: Response): Promise<void> {
     case game.opponentID:
       if (game.opponentTokens.available < tokensSent) {
         res.status(Status.BAD_REQUEST);
-        res.json(wrapResult(ResType.GAME_ERROR, GameError.BAD_AMOUNT));
+        res.json(wrapResult(ResType.GAME_ERROR, ERROR.BAD_AMOUNT));
         return;
       }
 
@@ -280,7 +263,7 @@ async function sendTokens(req: any, res: Response): Promise<void> {
       break;
     default:
       res.status(Status.BAD_REQUEST);
-      res.json(wrapResult(ResType.GAME_ERROR, GameError.WRONG_ID));
+      res.json(wrapResult(ResType.GAME_ERROR, ERROR.WRONG_ID));
       return;
   }
 
@@ -369,14 +352,14 @@ async function getGameStats(req: any, res: Response): Promise<void> {
     // if this is called from inside an arena, this means that one or both were afk. otherwise, line 228 will be hit
     // and it will show different ui. This conditional should show afk ui and game ending ui after 30 seconds on frontend.
     res.status(Status.BAD_REQUEST);
-    res.json(wrapResult(ResType.GAME_ERROR, GameError.GAME_NOT_FOUND));
+    res.json(wrapResult(ResType.GAME_ERROR, ERROR.GAME_NOT_FOUND));
     return;
   }
 
   // this is when a non-playing user calls from postman or something that has nothing to do with people in game.
   if (game.playerID !== nickname && game.opponentID !== nickname) {
     res.status(Status.BAD_REQUEST);
-    res.json(wrapResult(ResType.GAME_ERROR, GameError.WRONG_ID));
+    res.json(wrapResult(ResType.GAME_ERROR, ERROR.WRONG_ID));
     return;
   }
 
@@ -419,7 +402,7 @@ async function getFinalResults(req: any, res: Response) {
 
   if (!gameId) {
     res.status(Status.BAD_REQUEST);
-    res.json(wrapResult(ResType.GAME_ERROR, GameError.INVALID_REQUEST));
+    res.json(wrapResult(ResType.GAME_ERROR, ERROR.INVALID_REQUEST));
     return;
   }
 
@@ -427,7 +410,7 @@ async function getFinalResults(req: any, res: Response) {
 
   if (!game) {
     res.status(Status.BAD_REQUEST);
-    res.json(wrapResult(ResType.GAME_ERROR, GameError.GAME_NOT_FOUND));
+    res.json(wrapResult(ResType.GAME_ERROR, ERROR.GAME_NOT_FOUND));
     return;
   }
 
