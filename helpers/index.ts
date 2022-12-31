@@ -47,9 +47,18 @@ export enum AuthError {
 }
 
 export const verifyJWT = (req: any, res: any, next: NextFunction) => {
-  const authHeader = req.headers["authorization"];
+  const [bearer, token] = req.headers["authorization"].split(" ");
 
-  if (!authHeader) {
+  if (bearer !== "Bearer") {
+    return res.status(Status.BAD_AUTH).json(
+      wrapResult(AuthError.NO_TOKEN, {
+        success: false,
+        message: "incorrect authorization format",
+      })
+    );
+  }
+
+  if (!token) {
     return res.status(Status.BAD_AUTH).json(
       wrapResult(AuthError.NO_TOKEN, {
         success: false,
@@ -58,32 +67,21 @@ export const verifyJWT = (req: any, res: any, next: NextFunction) => {
     );
   }
 
-  const [_, token] = authHeader.split(" ");
-
-  if (token) {
-    jwt.verify(
-      token,
-      process.env.JWT_SECRET_KEY! as string,
-      (err: any, decoded: any) => {
-        if (err) {
-          return res.status(Status.BAD_AUTH).json(
-            wrapResult(AuthError.INVALID_TOKEN, {
-              success: false,
-              message: "Token is not valid",
-            })
-          );
-        }
-
-        req.decoded = decoded;
-        next();
+  jwt.verify(
+    token,
+    process.env.JWT_SECRET_KEY! as string,
+    (err: any, decoded: any) => {
+      if (err) {
+        return res.status(Status.BAD_AUTH).json(
+          wrapResult(AuthError.INVALID_TOKEN, {
+            success: false,
+            message: "Token is not valid",
+          })
+        );
       }
-    );
-  } else {
-    return res.status(Status.BAD_AUTH).json(
-      wrapResult(AuthError.NO_TOKEN, {
-        success: false,
-        message: "No token provided",
-      })
-    );
-  }
+
+      req.decoded = decoded;
+      next();
+    }
+  );
 };
