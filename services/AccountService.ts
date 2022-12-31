@@ -130,7 +130,7 @@ async function deleteAccount(req: any, res: Response): Promise<void> {
   const email: string = req.body.email;
   const password: string = req.body.password;
 
-  if (!email || !password) {
+  if (!email || !password || !nickname) {
     res.status(Status.BAD_REQUEST);
     res.json(wrapResult(ResType.BAD_REQUEST_BODY, ERROR.BAD_REQUEST_BODY));
     return;
@@ -138,12 +138,7 @@ async function deleteAccount(req: any, res: Response): Promise<void> {
 
   if (email !== req.decoded.email || nickname !== req.decoded.nickname) {
     res.status(Status.BAD_AUTH);
-    res.json(
-      wrapResult(ResType.ACCOUNT_ERROR, {
-        message: ERROR.JWT_ERROR,
-        token: null,
-      })
-    );
+    res.json(wrapResult(ResType.ACCOUNT_ERROR, ERROR.JWT_ERROR));
     return;
   }
 
