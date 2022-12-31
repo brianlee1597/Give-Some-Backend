@@ -91,7 +91,7 @@ export default class GameService {
             })
         } else {
             const DELTA = 1e4 // 1 second delta just in case;
-            
+
             setTimeout(async () => {
                 const progress: any = await Game.findById(game._id);
 
