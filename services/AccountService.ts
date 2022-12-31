@@ -108,11 +108,22 @@ async function login(req: Request, res: Response): Promise<void> {
 
 async function deleteAccount(req: Request, res: Response): Promise<void> {
   const email: string = req.body.email;
-  const account: any = await Account.findOne({ email });
+  const password: string = req.body.password;
+  const account: any = await Account.findOne({ email, password });
 
   if (!account) {
     res.status(Status.BAD_REQUEST);
     res.json(wrapResult(ResType.ACCOUNT_ERROR, AccountError.NO_ACCOUNT_FOUND));
+    return;
+  }
+
+  const isMatch: boolean = await bcrypt.compare(password, account.password);
+
+  if (!isMatch) {
+    res.status(Status.BAD_REQUEST);
+    res.json(
+      wrapResult(ResType.ACCOUNT_ERROR, AccountError.NO_MATCHING_PASSWORD)
+    );
     return;
   }
 

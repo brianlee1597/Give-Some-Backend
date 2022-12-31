@@ -295,6 +295,14 @@ async function sendTokens(req: Request, res: Response): Promise<void> {
   res.json(wrapResult(ResType.GAME_IN_PROGRESS, GameStatus.TOKENS_SENT));
 }
 
+/**
+ * This service is meant to get called frequently during in game to check status
+ * Once this returns game complete status, FE can switch pages
+ *
+ * @param req request parameter
+ * @param res response parameter
+ * @returns current progress or game complete status back to FE
+ */
 async function getGameStats(req: Request, res: Response): Promise<void> {
   const id = req.body.id;
   const nickname = req.body.nickname;
@@ -326,13 +334,19 @@ async function getGameStats(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  // send the current game progress TODO: Get some fking rest
+  // send current progress if game is ongoing
   const currentProgress = getCurrentProgress(game);
 
   res.status(Status.GOOD_REQUEST);
   res.json(wrapResult(ResType.GAME_IN_PROGRESS, currentProgress));
 }
 
+/**
+ *
+ * @param req request parameter
+ * @param res response parameter
+ * @returns final result of the game after page switch
+ */
 async function getFinalResults(req: Request, res: Response) {
   const gameId = req.body.id;
 
@@ -413,8 +427,6 @@ async function calculateTokenCount(game: any): Promise<NewTokenCount> {
 }
 
 function getCurrentProgress(game: any): CurrentProgress {
-  // destructure into current progress
-
   const playerID: string = game.playerID;
   const opponentID: string = game.opponentID;
 
