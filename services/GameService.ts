@@ -98,22 +98,18 @@ export default class GameService {
                 }
             })
         } else {
-            const progress: any = await Game.findById(game._id);
-            // game finished
-            if (!progress) return;
-
-            // game left hanging because no one chose anything
             const DELTA = 1e4;
-            // delete game after 30 seconds + 1 second delta
+
             setTimeout(async () => {
-                if (
-                    !progress.playerTokens.given || 
-                    !progress.opponentTokens.given
-                ) {
+                const progress: any = await Game.findById(game._id);
+                const noOneChoseAnything = progress && 
+                (!progress.playerTokens.given || !progress.opponentTokens.given);
+
+                if (noOneChoseAnything) {
                     await Game.findByIdAndDelete(game._id);
                     console.log("AFK game deleted");
                 }
-            }, 30000 + DELTA); //30 seconds max game time
+            }, 30000 + DELTA); //30 + 1 seconds max game time
         }
 
         res.status(Status.GOOD_REQUEST);
