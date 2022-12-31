@@ -23,7 +23,7 @@ async function createAccount(req: Request, res: Response): Promise<void> {
 
   if (accountValidationError) {
     res.status(Status.BAD_REQUEST);
-    res.send(
+    res.json(
       wrapResult(
         ResType.ACCOUNT_ERROR,
         accountValidationError.details[0].message
@@ -39,7 +39,7 @@ async function createAccount(req: Request, res: Response): Promise<void> {
 
   if (profaneNickname) {
     res.status(Status.BAD_REQUEST);
-    res.send(wrapResult(ResType.ACCOUNT_ERROR, AccountError.PROFANE_NICKNAME));
+    res.json(wrapResult(ResType.ACCOUNT_ERROR, AccountError.PROFANE_NICKNAME));
     return;
   }
 
@@ -48,13 +48,13 @@ async function createAccount(req: Request, res: Response): Promise<void> {
 
   if (nameExists) {
     res.status(Status.BAD_REQUEST);
-    res.send(wrapResult(ResType.ACCOUNT_ERROR, AccountError.NICKNAME_EXISTS));
+    res.json(wrapResult(ResType.ACCOUNT_ERROR, AccountError.NICKNAME_EXISTS));
     return;
   }
 
   if (accountExists) {
     res.status(Status.BAD_REQUEST);
-    res.send(wrapResult(ResType.ACCOUNT_ERROR, AccountError.EMAIL_EXISTS));
+    res.json(wrapResult(ResType.ACCOUNT_ERROR, AccountError.EMAIL_EXISTS));
     return;
   }
 
@@ -68,12 +68,12 @@ async function createAccount(req: Request, res: Response): Promise<void> {
   newAccount.save((mongooseSaveError: any) => {
     if (mongooseSaveError) {
       res.status(Status.BAD_REQUEST);
-      res.send(mongooseSaveError);
+      res.json(mongooseSaveError);
       return;
     }
 
     res.status(Status.GOOD_REQUEST);
-    res.send(
+    res.json(
       wrapResult(ResType.ACCOUNT_CREATED, "account creation successful")
     );
   });
@@ -87,7 +87,7 @@ async function login(req: Request, res: Response): Promise<void> {
 
   if (!account) {
     res.status(Status.BAD_REQUEST);
-    res.send(wrapResult(ResType.ACCOUNT_ERROR, AccountError.NO_ACCOUNT_FOUND));
+    res.json(wrapResult(ResType.ACCOUNT_ERROR, AccountError.NO_ACCOUNT_FOUND));
     return;
   }
 
@@ -103,7 +103,7 @@ async function login(req: Request, res: Response): Promise<void> {
   const resType = isMatch ? ResType.LOGIN_SUCCESSFUL : ResType.ACCOUNT_ERROR;
 
   res.status(status);
-  res.send(wrapResult(resType, message));
+  res.json(wrapResult(resType, message));
 }
 
 async function deleteAccount(req: Request, res: Response): Promise<void> {
@@ -112,19 +112,19 @@ async function deleteAccount(req: Request, res: Response): Promise<void> {
 
   if (!account) {
     res.status(Status.BAD_REQUEST);
-    res.send(wrapResult(ResType.ACCOUNT_ERROR, AccountError.NO_ACCOUNT_FOUND));
+    res.json(wrapResult(ResType.ACCOUNT_ERROR, AccountError.NO_ACCOUNT_FOUND));
     return;
   }
 
   account.delete((deleteError: any) => {
     if (deleteError) {
       res.status(Status.BAD_REQUEST);
-      res.send(wrapResult(ResType.ACCOUNT_ERROR, deleteError));
+      res.json(wrapResult(ResType.ACCOUNT_ERROR, deleteError));
       return;
     }
 
     res.status(Status.GOOD_REQUEST);
-    res.send(
+    res.json(
       wrapResult(ResType.DELETION_SUCCESSFUL, "account deletion complete")
     );
   });
