@@ -47,18 +47,9 @@ export enum AuthError {
 }
 
 export const verifyJWT = (req: any, res: any, next: NextFunction) => {
-  const [bearer, token] = req.headers["authorization"].split(" ");
+  const authorization = req.headers["authorization"];
 
-  if (bearer !== "Bearer") {
-    return res.status(Status.BAD_AUTH).json(
-      wrapResult(AuthError.NO_TOKEN, {
-        success: false,
-        message: "incorrect authorization format",
-      })
-    );
-  }
-
-  if (!token) {
+  if (!authorization) {
     return res.status(Status.BAD_AUTH).json(
       wrapResult(AuthError.NO_TOKEN, {
         success: false,
@@ -66,6 +57,8 @@ export const verifyJWT = (req: any, res: any, next: NextFunction) => {
       })
     );
   }
+
+  const [_, token] = authorization.split(" ");
 
   jwt.verify(
     token,
