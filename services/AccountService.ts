@@ -1,11 +1,12 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import { Filter } from 'profanity-check';
-import Account, { validate } from "../models/account";
+import Account, { AccountBody, validate } from "../models/account";
 import { hash } from "../helpers";
 import { Status } from "./__global_enums";
+import { ValidationError } from "joi";
 
-enum AccountError {
+export enum AccountError {
     PROFANE_NICKNAME = "please choose a less profane nickname",
     NICKNAME_EXISTS = "nickname already exists, please choose another nickname",
     EMAIL_EXISTS = "email already exists",
@@ -15,10 +16,10 @@ enum AccountError {
 
 export default class AccountService {
 
-    public async create(req: Request, res: Response) {
-        const accountCreationForm = req.body;
+    public async create(req: Request, res: Response): Promise<void> {
+        const accountCreationForm: AccountBody = req.body;
 
-        const { error: accountValidationError } 
+        const { error: accountValidationError }: { error: ValidationError | undefined }
             = validate(accountCreationForm);
     
         if (accountValidationError) {
@@ -33,8 +34,8 @@ export default class AccountService {
             password
         } = accountCreationForm;
 
-        const filter = new Filter();
-        const profaneNickname = filter.isProfane(nickname);
+        const filter: Filter = new Filter();
+        const profaneNickname: boolean = filter.isProfane(nickname);
 
         if (profaneNickname) {
             res.status(Status.BAD_REQUEST);
@@ -42,8 +43,8 @@ export default class AccountService {
             return;
         }
 
-        const nameExists = await Account.findOne({ nickname });
-        const accountExists = await Account.findOne({ email });
+        const nameExists: any = await Account.findOne({ nickname });
+        const accountExists: any = await Account.findOne({ email });
 
         if (nameExists) {
             res.status(Status.BAD_REQUEST);
@@ -57,14 +58,14 @@ export default class AccountService {
             return;
         }
 
-        const newAccount = new Account({
+        const newAccount: any = new Account({
             nickname,
             email,
             password: await hash(password),
             token_count: 4
         })
 
-        newAccount.save((mongooseSaveError) => {
+        newAccount.save((mongooseSaveError: any) => {
             if (mongooseSaveError) {
                 res.status(Status.BAD_REQUEST);
                 res.send(mongooseSaveError);
@@ -76,11 +77,11 @@ export default class AccountService {
         })
     }
 
-    public async login (req: Request, res: Response) {
-        const email = req.body.email;
-        const password = req.body.password;
+    public async login (req: Request, res: Response): Promise<void> {
+        const email: string = req.body.email;
+        const password: string = req.body.password;
 
-        const account = (await Account.findOne({ email })) as any;
+        const account: any = (await Account.findOne({ email }));
 
         if (!account) {
             res.status(Status.BAD_REQUEST);
@@ -88,19 +89,19 @@ export default class AccountService {
             return;
         }
 
-        const isMatch = await bcrypt.compare(password,  account.password);
+        const isMatch: boolean = await bcrypt.compare(password,  account.password);
 
-        const status = isMatch ? Status.GOOD_REQUEST : Status.BAD_REQUEST;
-        const message = isMatch ? "login successful" :
+        const status: Partial<Status> = isMatch ? Status.GOOD_REQUEST : Status.BAD_REQUEST;
+        const message: Partial<Status> | string = isMatch ? "login successful" :
             AccountError.NO_MATCHING_PASSWORD;
 
         res.status(status);
         res.send(message);
     }
 
-    public async delete (req: Request, res: Response) {
-        const email = req.body.email;
-        const account = await Account.findOne({ email });
+    public async delete (req: Request, res: Response): Promise<void> {
+        const email: string = req.body.email;
+        const account: any = await Account.findOne({ email });
 
         if (!account) {
             res.status(Status.BAD_REQUEST);
@@ -108,7 +109,7 @@ export default class AccountService {
             return;
         }
 
-        account.delete((deleteError) => {
+        account.delete((deleteError: any) => {
             if (deleteError) {
                 res.status(Status.BAD_REQUEST);
                 res.send(deleteError);

@@ -15,11 +15,11 @@ interface GameSchema {
         default: null,
     },
     playerTokens: {
-        type: string,
-        default: null,
+        type: any,
+        required: boolean,
     },
     opponentTokens: {
-        type: string,
+        type: any,
         default: null,
     },
 }
@@ -38,11 +38,17 @@ const gameSchema: GameSchema = {
         default: null,
     },
     playerTokens: {
-        type: "number",
-        default: null,
+        type: {
+            available: "number",
+            given: "number",
+        },
+        required: true,
     },
     opponentTokens: {
-        type: "number",
+        type: {
+            available: "number",
+            given: "number",
+        },
         default: null,
     }
 }

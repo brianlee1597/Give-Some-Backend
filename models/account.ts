@@ -57,7 +57,7 @@ export default Account;
 /* ========== MongoDB Schema Modeling ========== */
 
 /* ========== Account Creation JSON Validation ========== */
-interface AccountBody {
+export interface AccountBody {
     nickname: string;
     email: string;
     password: string;
