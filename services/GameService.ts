@@ -14,8 +14,8 @@ interface InitialGameStats {
 enum GameStatus {
     AWAITING = 0,
     READY = 1,
-    TOKENS_SENT = 2,
-    GAME_COMPLETE = 3,
+    TOKENS_SENT = "tokens sent",
+    GAME_COMPLETE = "game complete",
 }
 
 enum GameError {
@@ -24,6 +24,7 @@ enum GameError {
     WRONG_ID = "you are not authorised to play in this game",
     ALREADY_COMPLETE = "game already finished, not authorised to send tokens",
     NOT_STARTED_YET = "game hasn't started yet, still looking for someone to join",
+    BAD_AMOUNT = "invalid amount of tokens to give",
 }
 
 export default class GameService {
@@ -95,9 +96,12 @@ export default class GameService {
             setTimeout(async () => {
                 const progress: any = await Game.findById(game._id);
 
+                // game already finished
+                if (!progress) return;
+
                 if (
-                    !progress?.playerTokens.given || 
-                    !progress?.opponentTokens.given
+                    !progress.playerTokens.given || 
+                    !progress.opponentTokens.given
                 ) {
                     await Game.findByIdAndDelete(game._id);
                     console.log("AFK game deleted");
@@ -172,15 +176,21 @@ export default class GameService {
         const nickname: string = req.body.nickname;
         const tokensSent: number = req.body.tokens_sent;
 
+        if (tokensSent < 0) {
+            res.status(Status.BAD_REQUEST);
+            res.send(GameError.BAD_AMOUNT);
+            return;
+        }
+
         let game: any = await Game.findById(gameId);
 
-        if (!game) {
+        if (!game || !game.playerID || !game.opponentID) {
             res.status(Status.BAD_REQUEST);
             res.send(GameError.GAME_NOT_FOUND);
             return;
         }
 
-        if (game.playerTokens.given !== null && game.opponentTokens.given !== null) {
+        if (game.playerTokens.given && game.opponentTokens.given) {
             res.status(Status.BAD_REQUEST);
             res.send(GameError.ALREADY_COMPLETE);
             return;
@@ -188,9 +198,16 @@ export default class GameService {
 
         switch (nickname) {
             case game.playerID:
-                game = await Game.findByIdAndUpdate(gameId, {
+                if (game.playerTokens.available < tokensSent) {
+                    res.status(Status.BAD_REQUEST);
+                    res.send(GameError.BAD_AMOUNT);
+                    return;
+                }
+
+                await Game.findByIdAndUpdate(gameId, {
                     $set: {
                         playerTokens: {
+                            available: game.playerTokens.available,
                             given: tokensSent
                         }
                     }
@@ -198,9 +215,16 @@ export default class GameService {
 
                 break;
             case game.opponentID:
-                game = await Game.findByIdAndUpdate(gameId, {
+                if (game.opponentTokens.available < tokensSent) {
+                    res.status(Status.BAD_REQUEST);
+                    res.send(GameError.BAD_AMOUNT);
+                    return;
+                }
+
+                await Game.findByIdAndUpdate(gameId, {
                     $set: {
                         opponentTokens: {
+                            available: game.opponentTokens.available,
                             given: tokensSent
                         }
                     }
@@ -213,18 +237,62 @@ export default class GameService {
                 return;
         }
 
-        if (game.playerTokens.given !== null && game.opponentTokens.given !== null) {
+        game = await Game.findById(gameId);
+
+        const playerAvailable = game.playerTokens.available;
+        const playerGiven = game.playerTokens.given;
+        const opponentAvailable = game.opponentTokens.available;
+        const opponentGiven = game.opponentTokens.given;
+
+        if (playerGiven != null && opponentGiven != null) {
+            //delete the game after 5 seconds
+            setTimeout(async () => {
+                await Game.findByIdAndDelete(gameId);
+                console.log(`game completed and deleted. [${game.playerID}, ${game.opponentID}]`);
+            }, 5000);
+
             res.status(Status.GOOD_REQUEST);
             res.send(GameStatus.GAME_COMPLETE);
 
-            //delete the game after 5 seconds
-            setTimeout(() => {
-                Game.findByIdAndDelete(gameId);
-            }, 5e4);
-        } else {
-            res.status(Status.GOOD_REQUEST);
-            res.send(GameStatus.TOKENS_SENT);
+            const player: any = await Account.findOne({ nickname: game.playerID });
+            const opponent: any = await Account.findOne({ nickname: game.opponentID });
+
+            if (!player || !opponent) {
+                console.log("something is seriously wrong with mongodb");
+                return;
+            }
+
+            /* ========== Updating Players' token state =========== */
+            const playerTokenCount = player.token_count - playerAvailable;
+            const opponentTokenCount = opponent.token_count - opponentAvailable;
+            
+            let playerChange = (playerAvailable - playerGiven) + (opponentGiven * 2);
+            let opponentChange = (opponentAvailable - opponentGiven) + (playerGiven * 2);
+
+            // if both users didn't give anything, penalty is given
+            if (playerGiven === 0 && opponentGiven === 0) {
+                const penalty = Math.min(playerAvailable, opponentAvailable, 4);
+                playerChange = playerAvailable - penalty;
+                opponentChange = opponentAvailable - penalty;
+            }
+
+            await Account.findOneAndUpdate({ nickname: game.playerID }, {
+                $set: {
+                    token_count: playerTokenCount + playerChange
+                }
+            })
+
+            await Account.findOneAndUpdate({ nickname: game.opponentID }, {
+                $set: {
+                    token_count: opponentTokenCount + opponentChange
+                }
+            })
+            /* ========== Updating Players' token state =========== */
+            return;
         }
+
+        res.status(Status.GOOD_REQUEST);
+        res.send(GameStatus.TOKENS_SENT);
     }
 
     public async getGameStats (req: Request, res: Response): Promise<void> {
