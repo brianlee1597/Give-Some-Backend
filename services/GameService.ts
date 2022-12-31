@@ -2,8 +2,7 @@ import { Request, Response } from "express";
 import { logPretty, ResType, wrapResult } from "../helpers";
 import Account from "../models/account";
 import Game from "../models/game";
-import { AccountError } from "./AccountService";
-import { Status } from "./__global_enums";
+import { ERROR, Status } from "./__global_enums";
 
 interface InitialGameStats {
   id: string;
@@ -60,15 +59,28 @@ async function leaderboard(_: Request, res: Response): Promise<void> {
   res.json(wrapResult(ResType.LEADERBOARD, necessaryInfo));
 }
 
-async function join(req: Request, res: Response): Promise<void> {
+async function join(req: any, res: Response): Promise<void> {
   // do tokens available here instead
   const { nickname } = req.body;
+
+  if (!nickname) {
+    res.status(Status.BAD_REQUEST);
+    res.json(wrapResult(ResType.BAD_REQUEST_BODY, ERROR.BAD_REQUEST_BODY));
+    return;
+  }
 
   const player: any = await Account.findOne({ nickname });
 
   if (!player) {
     res.status(Status.BAD_REQUEST);
     res.json(wrapResult(ResType.GAME_ERROR, GameError.PLAYER_DOESNT_EXIST));
+    return;
+  }
+
+  if (nickname !== req.decoded.nickname || player.email !== req.decoded.email) {
+    console.log(nickname, req.decoded.nickname, player.email);
+    res.status(Status.BAD_AUTH);
+    res.json(wrapResult(ResType.ACCOUNT_ERROR, ERROR.JWT_ERROR));
     return;
   }
 
@@ -125,9 +137,15 @@ async function join(req: Request, res: Response): Promise<void> {
   );
 }
 
-async function getArena(req: Request, res: Response): Promise<void> {
+async function getArena(req: any, res: Response): Promise<void> {
   const gameId: string = req.body.id;
   const nickname: string = req.body.nickname;
+
+  if (!gameId || !nickname) {
+    res.status(Status.BAD_REQUEST);
+    res.json(wrapResult(ResType.BAD_REQUEST_BODY, ERROR.BAD_REQUEST_BODY));
+    return;
+  }
 
   let game: any = await Game.findById(gameId);
   let account: any = await Account.findOne({ nickname });
@@ -140,13 +158,22 @@ async function getArena(req: Request, res: Response): Promise<void> {
 
   if (!account) {
     res.status(Status.BAD_REQUEST);
-    res.json(wrapResult(ResType.ACCOUNT_ERROR, AccountError.NO_ACCOUNT_FOUND));
+    res.json(wrapResult(ResType.ACCOUNT_ERROR, ERROR.NO_ACCOUNT_FOUND));
     return;
   }
 
   if (!game.playerID || !game.opponentID) {
     res.status(Status.BAD_REQUEST);
     res.json(wrapResult(ResType.GAME_ERROR, GameError.NOT_STARTED_YET));
+    return;
+  }
+
+  if (
+    nickname !== req.decoded.nickname ||
+    account.email !== req.decoded.email
+  ) {
+    res.status(Status.BAD_AUTH);
+    res.json(wrapResult(ResType.ACCOUNT_ERROR, ERROR.JWT_ERROR));
     return;
   }
 
@@ -180,14 +207,27 @@ async function getArena(req: Request, res: Response): Promise<void> {
   res.json(wrapResult(ResType.INITIAL_GAME_STATS, initialGameStats));
 }
 
-async function sendTokens(req: Request, res: Response): Promise<void> {
+async function sendTokens(req: any, res: Response): Promise<void> {
   const gameId: string = req.body.id;
   const nickname: string = req.body.nickname;
+  const email: string = req.body.email;
   const tokensSent: number = req.body.tokens_sent;
+
+  if (!gameId || !nickname || !email || !tokensSent) {
+    res.status(Status.BAD_REQUEST);
+    res.json(wrapResult(ResType.BAD_REQUEST_BODY, ERROR.BAD_REQUEST_BODY));
+    return;
+  }
 
   if (tokensSent < 0) {
     res.status(Status.BAD_REQUEST);
     res.json(wrapResult(ResType.GAME_ERROR, GameError.BAD_AMOUNT));
+    return;
+  }
+
+  if (nickname !== req.decoded.nickname || email !== req.decoded.email) {
+    res.status(Status.BAD_AUTH);
+    res.json(wrapResult(ResType.ACCOUNT_ERROR, ERROR.JWT_ERROR));
     return;
   }
 
@@ -303,9 +343,22 @@ async function sendTokens(req: Request, res: Response): Promise<void> {
  * @param res response parameter
  * @returns current progress or game complete status back to FE
  */
-async function getGameStats(req: Request, res: Response): Promise<void> {
+async function getGameStats(req: any, res: Response): Promise<void> {
   const id = req.body.id;
   const nickname = req.body.nickname;
+  const email = req.body.email;
+
+  if (!id || !nickname || !email) {
+    res.status(Status.BAD_REQUEST);
+    res.json(wrapResult(ResType.BAD_REQUEST_BODY, ERROR.BAD_REQUEST_BODY));
+    return;
+  }
+
+  if (nickname !== req.decoded.nickname || email !== req.decoded.email) {
+    res.status(Status.BAD_AUTH);
+    res.json(wrapResult(ResType.ACCOUNT_ERROR, ERROR.JWT_ERROR));
+    return;
+  }
 
   const game: any = await Game.findById(id);
 
@@ -347,8 +400,22 @@ async function getGameStats(req: Request, res: Response): Promise<void> {
  * @param res response parameter
  * @returns final result of the game after page switch
  */
-async function getFinalResults(req: Request, res: Response) {
-  const gameId = req.body.id;
+async function getFinalResults(req: any, res: Response) {
+  const gameId: string = req.body.id;
+  const nickname: string = req.body.nickname;
+  const email: string = req.body.email;
+
+  if (!gameId || !nickname || !email) {
+    res.status(Status.BAD_REQUEST);
+    res.json(wrapResult(ResType.BAD_REQUEST_BODY, ERROR.BAD_REQUEST_BODY));
+    return;
+  }
+
+  if (nickname !== req.decoded.nickname || email !== req.decoded.email) {
+    res.status(Status.BAD_AUTH);
+    res.json(wrapResult(ResType.ACCOUNT_ERROR, ERROR.JWT_ERROR));
+    return;
+  }
 
   if (!gameId) {
     res.status(Status.BAD_REQUEST);
