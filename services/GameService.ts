@@ -314,7 +314,7 @@ export default class GameService {
             res.send(wrapResult(ResType.GAME_RESULTS, gameResults));
         }
 
-        // send the current game progress
+        // send the current game progress TODO: Get some fking rest
     }
 
     private async calculateTokenCount(game: any): Promise<NewTokenCount> {
