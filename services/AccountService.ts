@@ -1,125 +1,137 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
-import { Filter } from 'profanity-check';
+import { Filter } from "profanity-check";
 import Account, { AccountBody, validate } from "../models/account";
 import { hash, ResType, wrapResult } from "../helpers";
 import { Status } from "./__global_enums";
 import { ValidationError } from "joi";
 
 export enum AccountError {
-    PROFANE_NICKNAME = "please choose a less profane nickname",
-    NICKNAME_EXISTS = "nickname already exists, please choose another nickname",
-    EMAIL_EXISTS = "email already exists",
-    NO_ACCOUNT_FOUND = "no account found with that email",
-    NO_MATCHING_PASSWORD = "no matching password for that email",
+  PROFANE_NICKNAME = "please choose a less profane nickname",
+  NICKNAME_EXISTS = "nickname already exists, please choose another nickname",
+  EMAIL_EXISTS = "email already exists",
+  NO_ACCOUNT_FOUND = "no account found with that email",
+  NO_MATCHING_PASSWORD = "no matching password for that email",
 }
 
-export default class AccountService {
+async function createAccount(req: Request, res: Response): Promise<void> {
+  const accountCreationForm: AccountBody = req.body;
 
-    public async create(req: Request, res: Response): Promise<void> {
-        const accountCreationForm: AccountBody = req.body;
+  const {
+    error: accountValidationError,
+  }: { error: ValidationError | undefined } = validate(accountCreationForm);
 
-        const { error: accountValidationError }: { error: ValidationError | undefined }
-            = validate(accountCreationForm);
-    
-        if (accountValidationError) {
-            res.status(Status.BAD_REQUEST);
-            res.send(wrapResult(ResType.ACCOUNT_ERROR, accountValidationError.details[0].message));
-            return;
-        }
+  if (accountValidationError) {
+    res.status(Status.BAD_REQUEST);
+    res.send(
+      wrapResult(
+        ResType.ACCOUNT_ERROR,
+        accountValidationError.details[0].message
+      )
+    );
+    return;
+  }
 
-        let {
-            nickname,
-            email,
-            password
-        } = accountCreationForm;
+  let { nickname, email, password } = accountCreationForm;
 
-        const filter: Filter = new Filter();
-        const profaneNickname: boolean = filter.isProfane(nickname);
+  const filter: Filter = new Filter();
+  const profaneNickname: boolean = filter.isProfane(nickname);
 
-        if (profaneNickname) {
-            res.status(Status.BAD_REQUEST);
-            res.send(wrapResult(ResType.ACCOUNT_ERROR, AccountError.PROFANE_NICKNAME));
-            return;
-        }
+  if (profaneNickname) {
+    res.status(Status.BAD_REQUEST);
+    res.send(wrapResult(ResType.ACCOUNT_ERROR, AccountError.PROFANE_NICKNAME));
+    return;
+  }
 
-        const nameExists: any = await Account.findOne({ nickname });
-        const accountExists: any = await Account.findOne({ email });
+  const nameExists: any = await Account.findOne({ nickname });
+  const accountExists: any = await Account.findOne({ email });
 
-        if (nameExists) {
-            res.status(Status.BAD_REQUEST);
-            res.send(wrapResult(ResType.ACCOUNT_ERROR, AccountError.NICKNAME_EXISTS));
-            return;
-        }
+  if (nameExists) {
+    res.status(Status.BAD_REQUEST);
+    res.send(wrapResult(ResType.ACCOUNT_ERROR, AccountError.NICKNAME_EXISTS));
+    return;
+  }
 
-        if (accountExists) {
-            res.status(Status.BAD_REQUEST);
-            res.send(wrapResult(ResType.ACCOUNT_ERROR, AccountError.EMAIL_EXISTS));
-            return;
-        }
+  if (accountExists) {
+    res.status(Status.BAD_REQUEST);
+    res.send(wrapResult(ResType.ACCOUNT_ERROR, AccountError.EMAIL_EXISTS));
+    return;
+  }
 
-        const newAccount: any = new Account({
-            nickname,
-            email,
-            password: await hash(password),
-            token_count: 4
-        })
+  const newAccount: any = new Account({
+    nickname,
+    email,
+    password: await hash(password),
+    token_count: 4,
+  });
 
-        newAccount.save((mongooseSaveError: any) => {
-            if (mongooseSaveError) {
-                res.status(Status.BAD_REQUEST);
-                res.send(mongooseSaveError);
-                return;
-            }
-            
-            res.status(Status.GOOD_REQUEST);
-            res.send(wrapResult(ResType.ACCOUNT_CREATED, "account creation successful"));
-        })
+  newAccount.save((mongooseSaveError: any) => {
+    if (mongooseSaveError) {
+      res.status(Status.BAD_REQUEST);
+      res.send(mongooseSaveError);
+      return;
     }
 
-    public async login (req: Request, res: Response): Promise<void> {
-        const email: string = req.body.email;
-        const password: string = req.body.password;
-
-        const account: any = (await Account.findOne({ email }));
-
-        if (!account) {
-            res.status(Status.BAD_REQUEST);
-            res.send(wrapResult(ResType.ACCOUNT_ERROR, AccountError.NO_ACCOUNT_FOUND));
-            return;
-        }
-
-        const isMatch: boolean = await bcrypt.compare(password,  account.password);
-
-        const status: Partial<Status> = isMatch ? Status.GOOD_REQUEST : Status.BAD_REQUEST;
-        const message: Partial<Status> | string = isMatch ? "login successful" :
-            AccountError.NO_MATCHING_PASSWORD;
-
-        const resType = isMatch ? ResType.LOGIN_SUCCESSFUL : ResType.ACCOUNT_ERROR;
-
-        res.status(status);
-        res.send(wrapResult(resType, message));
-    }
-
-    public async delete (req: Request, res: Response): Promise<void> {
-        const email: string = req.body.email;
-        const account: any = await Account.findOne({ email });
-
-        if (!account) {
-            res.status(Status.BAD_REQUEST);
-            res.send(wrapResult(ResType.ACCOUNT_ERROR ,AccountError.NO_ACCOUNT_FOUND));
-            return;
-        }
-
-        account.delete((deleteError: any) => {
-            if (deleteError) {
-                res.status(Status.BAD_REQUEST);
-                res.send(wrapResult(ResType.ACCOUNT_ERROR, deleteError));
-                return;
-            }
-
-            res.status(Status.GOOD_REQUEST)
-            res.send(wrapResult(ResType.DELETION_SUCCESSFUL, "account deletion complete"));
-        })
-    }
+    res.status(Status.GOOD_REQUEST);
+    res.send(
+      wrapResult(ResType.ACCOUNT_CREATED, "account creation successful")
+    );
+  });
 }
+
+async function login(req: Request, res: Response): Promise<void> {
+  const email: string = req.body.email;
+  const password: string = req.body.password;
+
+  const account: any = await Account.findOne({ email });
+
+  if (!account) {
+    res.status(Status.BAD_REQUEST);
+    res.send(wrapResult(ResType.ACCOUNT_ERROR, AccountError.NO_ACCOUNT_FOUND));
+    return;
+  }
+
+  const isMatch: boolean = await bcrypt.compare(password, account.password);
+
+  const status: Partial<Status> = isMatch
+    ? Status.GOOD_REQUEST
+    : Status.BAD_REQUEST;
+  const message: Partial<Status> | string = isMatch
+    ? "login successful"
+    : AccountError.NO_MATCHING_PASSWORD;
+
+  const resType = isMatch ? ResType.LOGIN_SUCCESSFUL : ResType.ACCOUNT_ERROR;
+
+  res.status(status);
+  res.send(wrapResult(resType, message));
+}
+
+async function deleteAccount(req: Request, res: Response): Promise<void> {
+  const email: string = req.body.email;
+  const account: any = await Account.findOne({ email });
+
+  if (!account) {
+    res.status(Status.BAD_REQUEST);
+    res.send(wrapResult(ResType.ACCOUNT_ERROR, AccountError.NO_ACCOUNT_FOUND));
+    return;
+  }
+
+  account.delete((deleteError: any) => {
+    if (deleteError) {
+      res.status(Status.BAD_REQUEST);
+      res.send(wrapResult(ResType.ACCOUNT_ERROR, deleteError));
+      return;
+    }
+
+    res.status(Status.GOOD_REQUEST);
+    res.send(
+      wrapResult(ResType.DELETION_SUCCESSFUL, "account deletion complete")
+    );
+  });
+}
+
+export default {
+  createAccount,
+  login,
+  deleteAccount,
+};

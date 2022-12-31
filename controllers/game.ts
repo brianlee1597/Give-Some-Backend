@@ -2,12 +2,11 @@ import express from "express";
 import GameService from "../services/GameService";
 
 const router = express.Router();
-const game = new GameService();
 
-router.get("/leaderboard", game.leaderboard);
-router.get("/get_arena", game.getGameArena);
+router.get("/leaderboard", GameService.leaderboard);
+router.get("/get_arena", GameService.getArena);
 
-router.post("/join", game.join);
-router.post("/send_tokens", game.sendTokens);
+router.post("/join", GameService.join);
+router.post("/send_tokens", GameService.sendTokens);
 
 export default router;
