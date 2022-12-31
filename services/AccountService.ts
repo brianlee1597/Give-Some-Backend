@@ -12,6 +12,7 @@ export enum AccountError {
   EMAIL_EXISTS = "email already exists",
   NO_ACCOUNT_FOUND = "no account found with that email",
   NO_MATCHING_PASSWORD = "no matching password for that email",
+  BAD_REQUEST_BODY = "please check your request body",
 }
 
 async function createAccount(req: Request, res: Response): Promise<void> {
@@ -83,6 +84,12 @@ async function login(req: Request, res: Response): Promise<void> {
   const email: string = req.body.email;
   const password: string = req.body.password;
 
+  if (!email || !password) {
+    res.status(Status.BAD_REQUEST);
+    res.json(wrapResult(ResType.ACCOUNT_ERROR, AccountError.BAD_REQUEST_BODY));
+    return;
+  }
+
   const account: any = await Account.findOne({ email });
 
   if (!account) {
@@ -109,6 +116,13 @@ async function login(req: Request, res: Response): Promise<void> {
 async function deleteAccount(req: Request, res: Response): Promise<void> {
   const email: string = req.body.email;
   const password: string = req.body.password;
+
+  if (!email || !password) {
+    res.status(Status.BAD_REQUEST);
+    res.json(wrapResult(ResType.ACCOUNT_ERROR, AccountError.BAD_REQUEST_BODY));
+    return;
+  }
+
   const account: any = await Account.findOne({ email, password });
 
   if (!account) {
