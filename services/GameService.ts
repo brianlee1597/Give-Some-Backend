@@ -90,6 +90,8 @@ export default class GameService {
                 }
             })
         } else {
+            const DELTA = 1e4 // 1 second delta just in case;
+            
             setTimeout(async () => {
                 const progress: any = await Game.findById(game._id);
 
@@ -100,7 +102,7 @@ export default class GameService {
                     await Game.findByIdAndDelete(game._id);
                     console.log("AFK game deleted");
                 }
-            }, 30000); //30 seconds max game time
+            }, 30000 + DELTA); //30 seconds max game time
         }
 
         res.status(Status.GOOD_REQUEST);
