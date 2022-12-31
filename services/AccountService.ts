@@ -123,7 +123,7 @@ async function deleteAccount(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const account: any = await Account.findOne({ email, password });
+  const account: any = await Account.findOne({ email });
 
   if (!account) {
     res.status(Status.BAD_REQUEST);
