@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 
-/* ========== MongoDB Schema Modeling ========== */
 interface GameSchema {
+  timestamp: {
+    type: string;
+  };
   status: {
     type: string;
     required: boolean;
@@ -25,6 +27,9 @@ interface GameSchema {
 }
 
 const gameSchema: GameSchema = {
+  timestamp: {
+    type: "number",
+  },
   status: {
     type: "number",
     required: true,
@@ -55,4 +60,3 @@ const gameSchema: GameSchema = {
 
 const Game = mongoose.model("Game", new mongoose.Schema(gameSchema));
 export default Game;
-/* ========== MongoDB Schema Modeling ========== */
