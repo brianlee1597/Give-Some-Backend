@@ -22,12 +22,12 @@ export default async function login(
   req: Request,
   res: Response
 ): Promise<Response | undefined> {
-  const { errors }: any = validate(req.body);
+  const { error }: any = validate(req.body);
 
-  if (errors) {
+  if (error) {
     return res.status(StatusCodes.BAD_REQUEST).json({
       message: "invalid request body",
-      data: errors,
+      data: error,
     });
   }
 
