@@ -6,7 +6,6 @@ import account from "./controllers/account";
 import game from "./controllers/game";
 import { verifyJWT } from "./config";
 import WebSocket from "ws";
-import jwt from "jsonwebtoken";
 import { getArenaWebSocketInfo } from "./controllers/game/services/arena";
 
 dotenv.config();
@@ -31,6 +30,7 @@ app.post("/login", account.login);
 app.post("/delete_account", verifyJWT, account.deleteAccount);
 app.post("/join_game", verifyJWT, game.joinGame);
 app.get("/arena_ws_info", verifyJWT, getArenaWebSocketInfo);
+app.get("/final_results", verifyJWT, game.getFinalResults);
 app.post("/send_tokens", verifyJWT, game.sendTokens);
 
 app.listen(port, () => {
