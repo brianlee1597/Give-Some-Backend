@@ -67,9 +67,6 @@ export default async function sendTokens(
   );
 
   if (game[opponentTokens].given != null) {
-    // game has ended. calculate and finish
-    res.sendStatus(200).end();
-
     const { newPlayerTokenCount, newOpponentTokenCount } =
       await calculateTokenCount(game);
 
@@ -91,10 +88,20 @@ export default async function sendTokens(
       }
     );
 
-    return;
+    return res.status(StatusCodes.OK).json({
+      message: "token successfully sent",
+      data: {
+        status: GameState.DONE,
+      },
+    });
   }
 
-  return res.sendStatus(200);
+  return res.status(StatusCodes.OK).json({
+    message: "token successfully sent",
+    data: {
+      status: GameState.READY,
+    },
+  });
 }
 
 export async function calculateTokenCount(game: any): Promise<any> {
